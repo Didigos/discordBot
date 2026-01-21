@@ -45,3 +45,15 @@ export function getRandomEmoji() {
 export function capitalize(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
+
+export async function InstallGuildCommands(appId, guildId, commands) {
+  // API endpoint to overwrite guild commands (instant update)
+  const endpoint = `applications/${appId}/guilds/${guildId}/commands`;
+
+  try {
+    // Bulk overwrite guild commands
+    await DiscordRequest(endpoint, { method: 'PUT', body: commands });
+  } catch (err) {
+    console.error(err);
+  }
+}

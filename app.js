@@ -1,71 +1,339 @@
 import 'dotenv/config';
 import express from 'express';
 import {
-  ButtonStyleTypes,
-  InteractionResponseFlags,
   InteractionResponseType,
   InteractionType,
+  InteractionResponseFlags,
   MessageComponentTypes,
+  ButtonStyleTypes,
   verifyKeyMiddleware,
 } from 'discord-interactions';
-import { getRandomEmoji, DiscordRequest } from './utils.js';
-import { getShuffledOptions, getResult } from './game.js';
+import { pool } from './db.js';
 
-// Create an express app
 const app = express();
-// Get port, or default to 3000
 const PORT = process.env.PORT || 3000;
-// To keep track of our active games
-const activeGames = {};
 
-/**
- * Interactions endpoint URL where Discord will send HTTP requests
- * Parse request body and verifies incoming requests using discord-interactions package
- */
-app.post('/interactions', verifyKeyMiddleware(process.env.PUBLIC_KEY), async function (req, res) {
-  // Interaction id, type and data
-  const { id, type, data } = req.body;
+const CONNECT_MSG =
+  'Abra seu FiveM, aperte **F8** e cole:\n' +
+  '**connect liberaderoleplay.com.br**';
 
-  /**
-   * Handle verification requests
-   */
-  if (type === InteractionType.PING) {
-    return res.send({ type: InteractionResponseType.PONG });
-  }
+app.post(
+  '/interactions',
+  express.raw({ type: 'application/json' }),
+  verifyKeyMiddleware(process.env.PUBLIC_KEY),
+  async (req, res) => {
+    const interaction = Buffer.isBuffer(req.body)
+      ? JSON.parse(req.body.toString('utf-8'))
+      : req.body;
 
-  /**
-   * Handle slash command requests
-   * See https://discord.com/developers/docs/interactions/application-commands#slash-commands
-   */
-  if (type === InteractionType.APPLICATION_COMMAND) {
-    const { name } = data;
+    const { type, data, member, user } = interaction;
 
-    // "test" command
-    if (name === 'test') {
-      // Send a message into the channel where command was triggered from
-      return res.send({
-        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: {
-          flags: InteractionResponseFlags.IS_COMPONENTS_V2,
-          components: [
-            {
-              type: MessageComponentTypes.TEXT_DISPLAY,
-              // Fetches a random emoji to send from a helper function
-              content: `hello world ${getRandomEmoji()}`
-            }
-          ]
-        },
-      });
+    /* =======================
+       PING
+    ======================= */
+    if (type === InteractionType.PING) {
+      return res.send({ type: InteractionResponseType.PONG });
     }
 
-    console.error(`unknown command: ${name}`);
-    return res.status(400).json({ error: 'unknown command' });
+    /* =======================
+       SLASH COMMANDS
+    ======================= */
+    if (type === InteractionType.APPLICATION_COMMAND) {
+      const { name } = data;
+
+      // 🔒 /setup-liberacao (somente ADMIN)
+      if (name === 'setup-liberacao') {
+        const perms = member?.permissions ?? '0';
+        const isAdmin = (BigInt(perms) & BigInt(0x8)) === BigInt(0x8);
+
+        if (!isAdmin) {
+          return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '❌ Você não tem permissão para usar este comando.',
+              flags: InteractionResponseFlags.EPHEMERAL,
+            },
+          });
+        }
+
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content:
+              `🔐 **Liberação de acesso à cidade**\n\n` +
+              `**para você ser liberador na cidade é necessário que tenha tentando entrar pelo menos 1 vez no servidor para gerar sua ID.**\n\n` +
+              `\nClique no botão abaixo para iniciar sua liberação:\n\n` +
+              `_não é uma whitelist, somente informe seu ID e Nome do personagem para liberar o acesso ao servidor._`,
+            components: [
+              {
+                type: MessageComponentTypes.ACTION_ROW,
+                components: [
+                  {
+                    type: MessageComponentTypes.BUTTON,
+                    custom_id: 'liberar_acesso',
+                    style: ButtonStyleTypes.PRIMARY,
+                    label: 'Liberar Acesso',
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+
+      // /didigos
+      if (name === 'didigos') {
+        return res.send({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: { content: '✅ Olá! Eu sou seu porteiro de liberação 😄' },
+        });
+      }
+
+      return res.status(400).json({ error: `unknown command: ${name}` });
+    }
+
+    /* =======================
+       BOTÃO → MODAL
+    ======================= */
+    if (type === InteractionType.MESSAGE_COMPONENT) {
+      if (data.custom_id === 'liberar_acesso') {
+        // Valores oficiais do Discord:
+        // ACTION_ROW = 1, TEXT_INPUT = 4, style SHORT = 1
+        return res.send({
+          type: InteractionResponseType.MODAL,
+          data: {
+            custom_id: 'modal_liberar_acesso',
+            title: 'Liberar Acesso',
+            components: [
+              {
+                type: 1, // ACTION_ROW
+                components: [
+                  {
+                    type: 4, // TEXT_INPUT
+                    custom_id: 'nome_personagem',
+                    label: 'Nome do personagem',
+                    style: 1, // SHORT
+                    required: true,
+                    max_length: 32,
+                    placeholder: 'Ex: João Silva',
+                  },
+                ],
+              },
+              {
+                type: 1, // ACTION_ROW
+                components: [
+                  {
+                    type: 4, // TEXT_INPUT
+                    custom_id: 'id_conta',
+                    label: 'ID da conta',
+                    style: 1, // SHORT
+                    required: true,
+                    max_length: 12,
+                    placeholder: 'Ex: 7',
+                  },
+                ],
+              },
+            ],
+          },
+        });
+      }
+
+      return res.status(400).json({ error: 'unknown component' });
+    }
+
+    /* =======================
+       MODAL SUBMIT (VALIDAÇÃO + BANCO)
+    ======================= */
+    if (type === InteractionType.MODAL_SUBMIT) {
+      if (data.custom_id === 'modal_liberar_acesso') {
+        // Extrair inputs
+        const inputs = {};
+        const rows = Array.isArray(data.components) ? data.components : [];
+
+        for (const row of rows) {
+          for (const component of row.components ?? []) {
+            inputs[component.custom_id] = component.value;
+          }
+        }
+
+        let nomePersonagem = inputs.nome_personagem?.trim() ?? '';
+        let idConta = inputs.id_conta?.trim() ?? '';
+
+        // Normaliza espaços
+        nomePersonagem = nomePersonagem.replace(/\s+/g, ' ');
+
+        // Validação local
+        const errors = [];
+
+        if (nomePersonagem.length < 3 || nomePersonagem.length > 32) {
+          errors.push('• O **nome do personagem** deve ter entre **3 e 32** caracteres.');
+        }
+
+        const nomeValido = /^[\p{L}\p{N} ._-]+$/u.test(nomePersonagem);
+        if (!nomeValido) {
+          errors.push(
+            '• O **nome do personagem** possui caracteres inválidos. Use letras, números, espaço, . _ -'
+          );
+        }
+
+        if (!/^\d+$/.test(idConta)) {
+          errors.push('• O **ID da conta** deve conter **apenas números**.');
+        } else if (idConta.length < 1 || idConta.length > 12) {
+          errors.push('• O **ID da conta** deve ter até **12 dígitos**.');
+        }
+
+        if (errors.length) {
+          return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: `❌ **Corrija os campos abaixo:**\n${errors.join('\n')}`,
+              flags: InteractionResponseFlags.EPHEMERAL,
+            },
+          });
+        }
+
+        // Discord ID do usuário que enviou o modal
+        const discordId = member?.user?.id ?? user?.id;
+        if (!discordId) {
+          return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '❌ Não consegui identificar seu Discord ID. Tente novamente no servidor.',
+              flags: InteractionResponseFlags.EPHEMERAL,
+            },
+          });
+        }
+
+        try {
+          // 1) Verifica se o ID existe
+          const [rowsDb] = await pool.query(
+            'SELECT id, whitelist, axe_discord FROM accounts WHERE id = ? LIMIT 1',
+            [Number(idConta)]
+          );
+
+          if (!rowsDb || rowsDb.length === 0) {
+            return res.send({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content:
+                  '❌ **Você ainda não tentou conectar em nosso servidor para gerar uma ID.**\n\n' +
+                  CONNECT_MSG,
+                flags: InteractionResponseFlags.EPHEMERAL,
+              },
+            });
+          }
+
+          const acc = rowsDb[0];
+          const axeDiscord = acc.axe_discord ? String(acc.axe_discord) : null;
+
+          // 2) Se esse ID já está vinculado a OUTRO Discord, bloqueia
+          console.log('liberação aqui: ', axeDiscord != String(discordId))
+          if (axeDiscord && axeDiscord != String(discordId)) {
+            console.log('não foi liberado!')
+            return res.send({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content:
+                  '❌ O ID informado está incorreto (já está vinculado a outro Discord). ' +
+                  'Se tiver qualquer dúvida, abra um ticket.',
+                flags: InteractionResponseFlags.EPHEMERAL,
+              },
+            });
+          }
+
+          // 0) Se esse Discord já está liberado em algum ID, bloqueia
+          const [alreadyRows] = await pool.query(
+            'SELECT id FROM accounts WHERE axe_discord = ? AND whitelist = 1 LIMIT 1',
+            [String(discordId)]
+          );
+
+          if (alreadyRows && alreadyRows.length > 0) {
+            return res.send({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content: '✅ Você já está liberado em nossa cidade. Qualquer dúvida, abra um ticket.',
+                flags: InteractionResponseFlags.EPHEMERAL,
+              },
+            });
+          }
+
+          // 3) Se já está liberado e pertence ao mesmo Discord, só dá boas-vindas
+          if (Number(acc.whitelist) === 1 && axeDiscord === String(discordId)) {
+            return res.send({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content:
+                  '✅ Sua conta já está liberada!\n\n' +
+                  'Para entrar no servidor:\n' +
+                  '**connect liberaderoleplay.com.br**',
+                flags: InteractionResponseFlags.EPHEMERAL,
+              },
+            });
+          }
+
+          // 4) Se está vazio (NULL), vincula ao Discord e libera whitelist.
+          // Se já for igual, só libera whitelist.
+          // Importante: tudo em 1 UPDATE com condição pra não ter corrida.
+          const [updateResult] = await pool.query(
+            `
+            UPDATE accounts
+            SET
+              axe_discord = COALESCE(axe_discord, ?),
+              whitelist = 1
+            WHERE id = ?
+              AND (axe_discord IS NULL OR axe_discord = ?)
+              AND whitelist = 0
+            LIMIT 1
+            `,
+            [String(discordId), Number(idConta), String(discordId)]
+          );
+
+          if (!updateResult || updateResult.affectedRows !== 1) {
+            return res.send({
+              type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+              data: {
+                content:
+                  '❌ Não consegui liberar agora (pode ter sido liberado por outra ação). ' +
+                  'Tente novamente ou abra um ticket.',
+                flags: InteractionResponseFlags.EPHEMERAL,
+              },
+            });
+          }
+
+          // 5) Boas-vindas
+          return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content:
+                `🎉 **Bem-vindo(a) à Liberdade Roleplay!**\n\n` +
+                `✅ Sua whitelist foi liberada com sucesso.\n` +
+                `• Personagem: **${nomePersonagem}**\n` +
+                `• ID: **${idConta}**\n\n` +
+                `📌 Para conectar:\n` +
+                `1) Abra o FiveM\n` +
+                `2) Aperte **F8**\n` +
+                `3) Cole: **connect liberaderoleplay.com.br**\n\n` +
+                `Nos vemos na cidade! 🚓🏙️`,
+              flags: InteractionResponseFlags.EPHEMERAL,
+            },
+          });
+        } catch (err) {
+          console.error('Erro MySQL:', err);
+          return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+              content: '❌ Erro ao consultar/atualizar o banco. Avise um staff.',
+              flags: InteractionResponseFlags.EPHEMERAL,
+            },
+          });
+        }
+      }
+
+      return res.status(400).json({ error: 'unknown modal' });
+    }
+
+    return res.status(400).json({ error: 'unknown interaction type' });
   }
+);
 
-  console.error('unknown interaction type', type);
-  return res.status(400).json({ error: 'unknown interaction type' });
-});
-
-app.listen(PORT, () => {
-  console.log('Listening on port', PORT);
-});
+app.listen(PORT, () => console.log('Listening on port', PORT));

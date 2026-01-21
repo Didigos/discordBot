@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { getRPSChoices } from './game.js';
-import { capitalize, InstallGlobalCommands } from './utils.js';
+import { capitalize, InstallGlobalCommands, InstallGuildCommands } from './utils.js';
 
 // Get the game choices from game.js
 function createCommandChoices() {
@@ -19,7 +19,7 @@ function createCommandChoices() {
 
 // Simple test command
 const TEST_COMMAND = {
-  name: 'test',
+  name: 'didigos',
   description: 'Basic command',
   type: 1,
   integration_types: [0, 1],
@@ -44,6 +44,16 @@ const CHALLENGE_COMMAND = {
   contexts: [0, 2],
 };
 
-const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND];
+const SETUP_LIBERACAO_COMMAND = {
+  name: 'setup-liberacao',
+  description: 'Cria a mensagem de liberação de acesso no canal',
+  type: 1,
+  integration_types: [0, 1],
+  contexts: [0, 2],
+};
 
-InstallGlobalCommands(process.env.APP_ID, ALL_COMMANDS);
+
+const ALL_COMMANDS = [TEST_COMMAND, CHALLENGE_COMMAND, SETUP_LIBERACAO_COMMAND];
+
+
+InstallGuildCommands(process.env.APP_ID, process.env.GUILD_ID, ALL_COMMANDS);

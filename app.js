@@ -11,7 +11,7 @@ import {
 import { pool } from './db.js';
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 const CONNECT_MSG =
   'Abra seu FiveM, aperte **F8** e cole:\n' +
@@ -336,4 +336,6 @@ app.post(
   }
 );
 
-app.listen(PORT, () => console.log('Listening on port', PORT));
+app.listen(PORT, '0.0.0.0', () => {
+  console.log('Listening on port', PORT);
+});

@@ -17,19 +17,39 @@ const CONNECT_MSG =
   'Abra seu FiveM, aperte **F8** e cole:\n' +
   '**connect liberaderoleplay.com.br**';
 
+// ✅ Rota de health só pra você testar no navegador (opcional, ajuda a confirmar que o site está vivo)
+app.get('/', (req, res) => {
+  res.status(200).send('Bot online ✅');
+});
+
 app.post(
   '/interactions',
-  express.raw({ type: 'application/json' }),
-  verifyKeyMiddleware(process.env.PUBLIC_KEY),
-  async (req, res) => {
-    const interaction = Buffer.isBuffer(req.body)
-      ? JSON.parse(req.body.toString('utf-8'))
-      : req.body;
 
+  // ✅ Pega QUALQUER content-type (às vezes vem application/json; charset=utf-8)
+  express.raw({ type: '*/*' }),
+
+  // ✅ Log para confirmar se o Discord está chegando com headers de assinatura
+  (req, res, next) => {
+    console.log(
+      'POST /interactions',
+      'sig?',
+      !!req.headers['x-signature-ed25519'],
+      'ts?',
+      !!req.headers['x-signature-timestamp']
+    );
+    next();
+  },
+
+  // ✅ Verifica assinatura com a PUBLIC_KEY
+  verifyKeyMiddleware(process.env.PUBLIC_KEY),
+
+  // ✅ Se passou no middleware, req.body já vem como objeto (não precisa JSON.parse manual)
+  async (req, res) => {
+    const interaction = req.body;
     const { type, data, member, user } = interaction;
 
     /* =======================
-       PING
+       PING (validação do Discord)
     ======================= */
     if (type === InteractionType.PING) {
       return res.send({ type: InteractionResponseType.PONG });
@@ -61,8 +81,8 @@ app.post(
           data: {
             content:
               `🔐 **Liberação de acesso à cidade**\n\n` +
-              `**para você ser liberador na cidade é necessário que tenha tentando entrar pelo menos 1 vez no servidor para gerar sua ID.**\n\n` +
-              `\nClique no botão abaixo para iniciar sua liberação:\n\n` +
+              `**Para você ser liberado na cidade é necessário que tenha tentando entrar pelo menos 1 vez no servidor para gerar sua ID.**\n\n` +
+              `Clique no botão abaixo para iniciar sua liberação:\n\n` +
               `_não é uma whitelist, somente informe seu ID e Nome do personagem para liberar o acesso ao servidor._`,
             components: [
               {
@@ -227,9 +247,7 @@ app.post(
           const axeDiscord = acc.axe_discord ? String(acc.axe_discord) : null;
 
           // 2) Se esse ID já está vinculado a OUTRO Discord, bloqueia
-          console.log('liberação aqui: ', axeDiscord != String(discordId))
-          if (axeDiscord && axeDiscord != String(discordId)) {
-            console.log('não foi liberado!')
+          if (axeDiscord && axeDiscord !== String(discordId)) {
             return res.send({
               type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
               data: {
@@ -271,9 +289,7 @@ app.post(
             });
           }
 
-          // 4) Se está vazio (NULL), vincula ao Discord e libera whitelist.
-          // Se já for igual, só libera whitelist.
-          // Importante: tudo em 1 UPDATE com condição pra não ter corrida.
+          // 4) Libera (vincula se NULL e seta whitelist=1)
           const [updateResult] = await pool.query(
             `
             UPDATE accounts

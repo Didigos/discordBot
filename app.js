@@ -131,9 +131,9 @@ app.post(
                   {
                     type: 4, // TEXT_INPUT
                     custom_id: 'nome_personagem',
-                    label: 'Nome do personagem',
+                    label: 'Alterar Apelido (discord) - Opcional',
                     style: 1, // SHORT
-                    required: true,
+                    required: false,
                     max_length: 32,
                     placeholder: 'Ex: João Silva',
                   },

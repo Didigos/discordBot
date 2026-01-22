@@ -319,7 +319,7 @@ app.post(
           const responseNick = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}`, {
             method: 'PATCH',
             headers: {
-              'Authorization': `Bot ${process.env.BOT_TOKEN}`,
+              'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({

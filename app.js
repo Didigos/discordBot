@@ -343,7 +343,7 @@ app.post(
                 `📌 Para conectar:\n` +
                 `1) Abra o FiveM\n` +
                 `2) Aperte **F8**\n` +
-                `3) Cole: **connect liberaderoleplay.com.br**\n\n` +
+                `3) Cole: **connect cfx.re/join/eqo8zm**\n\n` +
                 `Nos vemos na cidade! 🚓🏙️`,
               flags: InteractionResponseFlags.EPHEMERAL,
             },

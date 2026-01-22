@@ -316,6 +316,8 @@ app.post(
             });
           }
 
+
+
           // 5) Boas-vindas
           return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -345,12 +347,38 @@ app.post(
         }
       }
 
+      // 5) Alterar apelido no Discord e enviar Boas-vindas
+      try {
+        const guildId = interaction.guild_id; // Pega o ID do servidor
+
+        await fetch(
+          `https://discord.com/api/v10/guilds/${guildId}/members/${discordId}`,
+          {
+            method: 'PATCH',
+            headers: {
+              Authorization: `Bot ${process.env.DISCORD_TOKEN}`, // Você precisará do Token do Bot no seu .env
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nick: nomePersonagem,
+            }),
+          }
+        );
+        console.log(`Apelido de ${discordId} alterado para ${nomePersonagem}`);
+      } catch (nickError) {
+        // Logamos o erro mas não travamos o processo, caso o bot não tenha permissão sobre um admin
+        console.error('Erro ao mudar apelido:', nickError);
+      }
+
+
       return res.status(400).json({ error: 'unknown modal' });
     }
 
     return res.status(400).json({ error: 'unknown interaction type' });
   }
 );
+
+
 
 app.listen(PORT, '0.0.0.0', () => {
   console.log('Listening on port', PORT);

@@ -316,7 +316,20 @@ app.post(
             });
           }
 
-          
+          const responseNick = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}`, {
+            method: 'PATCH',
+            headers: {
+              'Authorization': `Bot ${process.env.BOT_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              nick: nomePersonagem
+            }),
+          });
+
+          if (!responseNick.ok) {
+            console.error('Erro ao atualizar apelido do Discord:', await responseNick.text());
+          }
 
           // 5) Boas-vindas
           return res.send({

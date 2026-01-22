@@ -331,6 +331,61 @@ app.post(
             console.error('Erro ao atualizar apelido do Discord:', await responseNick.text());
           }
 
+          const addRole = '1075839982771650715'
+          const remRole = '1075840167084864060'
+
+
+          const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}/roles/${addRole}`, {
+            headers: {
+              'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
+            },
+          });
+
+          const memberData = await memberResponse.json();
+          const hasRole = memberData.roles.includes(addRole);
+          const hasRemRole = memberData.roles.includes(remRole);
+
+          if (!hasRemRole) {
+            // Remover cargo de "Aguardando Liberação"
+            const remRoleResponse = await fetch(
+              `https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}/roles/${remRole}`,
+              {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bot ${process.env.DISCORD_TOKEN}` }
+              }
+            )
+
+            if (remRoleResponse.ok) {
+              console.log(`Cargo ${remRole} removido do usuário ${discordId}`);
+            } else {
+              console.error('Erro ao remover cargo:', await remRoleResponse.text());
+            }
+          } else {
+            console.log("O usuário já possui o cargo.");
+          }
+
+          if (!hasRole) {
+            // 2. Se não tem o cargo, vamos adicionar
+            const addRoleResponse = await fetch(
+              `https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}/roles/${addRole}`,
+              {
+                method: 'PUT', // PUT é usado para adicionar cargos no Discord
+                headers: {
+                  'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
+                  'Content-Length': '0'
+                }
+              }
+            );
+
+            if (addRoleResponse.ok) {
+              console.log(`Cargo ${addRole} atribuído ao usuário ${discordId}`);
+            } else {
+              console.error('Erro ao atribuir cargo:', await addRoleResponse.text());
+            }
+          } else {
+            console.log("O usuário já possui o cargo.");
+          }
+
           // 5) Boas-vindas
           return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,

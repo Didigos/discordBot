@@ -115,6 +115,7 @@ app.post(
     /* =======================
        BOTÃO → MODAL
     ======================= */
+    const nameRequired = false;
     if (type === InteractionType.MESSAGE_COMPONENT) {
       if (data.custom_id === 'liberar_acesso') {
         // Valores oficiais do Discord:
@@ -133,7 +134,7 @@ app.post(
                     custom_id: 'nome_personagem',
                     label: 'Alterar Apelido (discord) - Opcional',
                     style: 1, // SHORT
-                    required: false,
+                    required: nameRequired,
                     max_length: 32,
                     placeholder: 'Ex: João Silva',
                   },
@@ -185,16 +186,20 @@ app.post(
         // Validação local
         const errors = [];
 
-        if (nomePersonagem.length < 3 || nomePersonagem.length > 32) {
-          errors.push('• O **nome do personagem** deve ter entre **3 e 32** caracteres.');
+        if (nameRequired) {
+
+          if (nomePersonagem.length < 3 || nomePersonagem.length > 32) {
+            errors.push('• O **nome do personagem** deve ter entre **3 e 32** caracteres.');
+          }
+
+          const nomeValido = /^[\p{L}\p{N} ._-]+$/u.test(nomePersonagem);
+          if (!nomeValido) {
+            errors.push(
+              '• O **nome do personagem** possui caracteres inválidos. Use letras, números, espaço, . _ -'
+            );
+          }
         }
 
-        const nomeValido = /^[\p{L}\p{N} ._-]+$/u.test(nomePersonagem);
-        if (!nomeValido) {
-          errors.push(
-            '• O **nome do personagem** possui caracteres inválidos. Use letras, números, espaço, . _ -'
-          );
-        }
 
         if (!/^\d+$/.test(idConta)) {
           errors.push('• O **ID da conta** deve conter **apenas números**.');

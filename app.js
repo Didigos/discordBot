@@ -188,18 +188,6 @@ app.post(
 
 
 
-        if (nomePersonagem.length < 3 || nomePersonagem.length > 32) {
-          errors.push('• O **nome do personagem** deve ter entre **3 e 32** caracteres.');
-        }
-
-        const nomeValido = /^[\p{L}\p{N} ._-]+$/u.test(nomePersonagem);
-        if (!nomeValido) {
-          errors.push(
-            '• O **nome do personagem** possui caracteres inválidos. Use letras, números, espaço, . _ -'
-          );
-        }
-
-
 
         if (!/^\d+$/.test(idConta)) {
           errors.push('• O **ID da conta** deve conter **apenas números**.');
@@ -322,6 +310,19 @@ app.post(
           }
 
           if (nomePersonagem.length > 0) {
+
+            if (nomePersonagem.length < 3 || nomePersonagem.length > 32) {
+              errors.push('• O **nome do personagem** deve ter entre **3 e 32** caracteres.');
+            }
+
+            const nomeValido = /^[\p{L}\p{N} ._-]+$/u.test(nomePersonagem);
+            if (!nomeValido) {
+              errors.push(
+                '• O **nome do personagem** possui caracteres inválidos. Use letras, números, espaço, . _ -'
+              );
+            }
+
+
             const responseNick = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}`, {
               method: 'PATCH',
               headers: {

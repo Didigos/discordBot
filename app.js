@@ -332,20 +332,18 @@ app.post(
           }
 
           const addRole = '1075839982771650715'
-          const remRole = '1075840167084864060'
+          const remRole = '1075839982771650713'
 
 
           const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}`, {
+            method: 'GET',
             headers: {
-              method: 'GET',
               'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
             },
           });
 
-          console.log('memberResponse status:', memberResponse.status);
           const memberData = await memberResponse.json();
-          console.log('memberData:', memberData);
-          
+
           const hasAddRole = memberData.roles.includes(addRole);
           const hasRemRole = memberData.roles.includes(remRole);
 

@@ -341,7 +341,9 @@ app.post(
             },
           });
 
+          console.log('memberResponse status:', memberResponse.status);
           const memberData = await memberResponse.json();
+          console.log('memberData:', memberData);
           
           const hasAddRole = memberData.roles.includes(addRole);
           const hasRemRole = memberData.roles.includes(remRole);

@@ -335,7 +335,7 @@ app.post(
           const remRole = '1075840167084864060'
 
 
-          const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}/roles/${addRole}`, {
+          const memberResponse = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}`, {
             headers: {
               method: 'GET',
               'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,

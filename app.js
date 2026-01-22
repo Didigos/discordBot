@@ -115,7 +115,7 @@ app.post(
     /* =======================
        BOTÃO → MODAL
     ======================= */
-    const nameRequired = false;
+
     if (type === InteractionType.MESSAGE_COMPONENT) {
       if (data.custom_id === 'liberar_acesso') {
         // Valores oficiais do Discord:
@@ -134,7 +134,7 @@ app.post(
                     custom_id: 'nome_personagem',
                     label: 'Alterar Apelido (discord) - Opcional',
                     style: 1, // SHORT
-                    required: nameRequired,
+                    required: false,
                     max_length: 32,
                     placeholder: 'Ex: João Silva',
                   },
@@ -186,19 +186,19 @@ app.post(
         // Validação local
         const errors = [];
 
-        if (nameRequired) {
 
-          if (nomePersonagem.length < 3 || nomePersonagem.length > 32) {
-            errors.push('• O **nome do personagem** deve ter entre **3 e 32** caracteres.');
-          }
 
-          const nomeValido = /^[\p{L}\p{N} ._-]+$/u.test(nomePersonagem);
-          if (!nomeValido) {
-            errors.push(
-              '• O **nome do personagem** possui caracteres inválidos. Use letras, números, espaço, . _ -'
-            );
-          }
+        if (nomePersonagem.length < 3 || nomePersonagem.length > 32) {
+          errors.push('• O **nome do personagem** deve ter entre **3 e 32** caracteres.');
         }
+
+        const nomeValido = /^[\p{L}\p{N} ._-]+$/u.test(nomePersonagem);
+        if (!nomeValido) {
+          errors.push(
+            '• O **nome do personagem** possui caracteres inválidos. Use letras, números, espaço, . _ -'
+          );
+        }
+
 
 
         if (!/^\d+$/.test(idConta)) {
@@ -321,21 +321,22 @@ app.post(
             });
           }
 
-          const responseNick = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}`, {
-            method: 'PATCH',
-            headers: {
-              'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              nick: nomePersonagem
-            }),
-          });
+          if (nomePersonagem.length > 0) {
+            const responseNick = await fetch(`https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}`, {
+              method: 'PATCH',
+              headers: {
+                'Authorization': `Bot ${process.env.DISCORD_TOKEN}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                nick: nomePersonagem
+              }),
+            });
 
-          if (!responseNick.ok) {
-            console.error('Erro ao atualizar apelido do Discord:', await responseNick.text());
+            if (!responseNick.ok) {
+              console.error('Erro ao atualizar apelido do Discord:', await responseNick.text());
+            }
           }
-
           const addRole = '1075839982771650715'
           const remRole = '1075839982771650713'
 

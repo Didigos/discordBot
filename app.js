@@ -342,10 +342,11 @@ app.post(
           });
 
           const memberData = await memberResponse.json();
-          const hasRole = memberData.roles.includes(addRole);
+          
+          const hasAddRole = memberData.roles.includes(addRole);
           const hasRemRole = memberData.roles.includes(remRole);
 
-          if (!hasRemRole) {
+          if (hasRemRole) {
             // Remover cargo de "Aguardando Liberação"
             const remRoleResponse = await fetch(
               `https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}/roles/${remRole}`,
@@ -364,7 +365,7 @@ app.post(
             console.log("O usuário já possui o cargo.");
           }
 
-          if (!hasRole) {
+          if (!hasAddRole) {
             // 2. Se não tem o cargo, vamos adicionar
             const addRoleResponse = await fetch(
               `https://discord.com/api/v10/guilds/${process.env.GUILD_ID}/members/${discordId}/roles/${addRole}`,
